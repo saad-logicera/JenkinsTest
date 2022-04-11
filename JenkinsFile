@@ -1,0 +1,27 @@
+#!/usr/bin/groovy
+def label = "jenkins-${UUID.randomUUID().toString()}"
+podTemplate(label: label, containers: [
+  containerTemplate(name: 'jnlp', image: 'jenkins/jnlp-slave:3.27-1-alpine', args: '${computer.jnlpmac} ${computer.name}', workingDir: '/home/jenkins', resourceRequestCpu: '100m', resourceLimitCpu: '200m', resourceRequestMemory: '256Mi', resourceLimitMemory: '512Mi'),
+  containerTemplate(name: 'alpine', image: 'alpine', workingDir: '/home/jenkins', ttyEnabled: true, command: 'cat', resourceRequestCpu: '100m', resourceLimitCpu: '200m', resourceRequestMemory: '256Mi', resourceLimitMemory: '512Mi'),
+ ]) 
+ {
+ node(label) {
+    
+    container('alpine') {
+    
+    stage('Checkout source'){
+            checkout scm
+        }
+    
+    // Build and deploy to AKS Cluster
+    stage('Build Release') {
+        script {
+        // Delete existing job 
+        kubernetesDeploy(kubeconfigId: 'kubernetes', deleteResource: true, configs: 'tokensync.yaml',)
+        // Create job
+        kubernetesDeploy(kubeconfigId: 'kubernetes', configs: 'tokensync.yaml',)
+        }
+    }
+    }
+ }
+}
